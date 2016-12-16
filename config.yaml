@@ -21,6 +21,7 @@ Topology:
     NumWorkers: 3
     SpoutParallelism_hint: 1
     ParseMetricBoltParallelism_hint: 2
+    MetricErrorToHbaseParallelism_hint: 3
     Debug: false
     DisableCheck: false
     topology.message.timeout.secs: 30

@@ -5,29 +5,24 @@
  */
 package co.oddeye.storm;
 
-import co.oddeye.core.ErrorState;
 import co.oddeye.core.OddeeyMetricMeta;
 import co.oddeye.core.OddeeyMetricMetaList;
 import co.oddeye.core.globalFunctions;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
 import java.util.Map;
 import net.opentsdb.core.TSDB;
 import net.opentsdb.utils.Config;
-import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
-import org.apache.storm.tuple.Values;
-import org.hbase.async.GetRequest;
-import org.hbase.async.KeyValue;
+import org.hbase.async.PutRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,18 +30,21 @@ import org.slf4j.LoggerFactory;
  *
  * @author vahan
  */
-public class ParseMetricErrorBolt extends BaseRichBolt {
+public class MetricErrorToHbase extends BaseRichBolt {
 
     protected OutputCollector collector;
-    public static final Logger LOGGER = LoggerFactory.getLogger(ParseMetricErrorBolt.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(MetricErrorToHbase.class);
     private JsonParser parser = null;
     private final Map conf;
     private Config openTsdbConfig;
     private org.hbase.async.Config clientconf;
     private byte[] metatable;
     private OddeeyMetricMetaList mtrscList;
+    private byte[] errorshistorytable;
+    private byte[][] qualifiers;
+    private byte[][] values;
 
-    public ParseMetricErrorBolt(java.util.Map config) {
+    public MetricErrorToHbase(java.util.Map config) {
         this.conf = config;
     }
 
@@ -75,6 +73,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
             TSDB tsdb = globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf);
             LOGGER.error("tsdb: " + tsdb);
             this.metatable = String.valueOf(conf.get("metatable")).getBytes();
+            this.errorshistorytable = String.valueOf(conf.get("errorshistorytable")).getBytes();
             mtrscList = new OddeeyMetricMetaList();
         } catch (IOException ex) {
             LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
@@ -83,32 +82,24 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
 
     @Override
     public void execute(Tuple input) {
-        String msg = input.getString(0);        
+//        String msg = input.getString(0);        
         try {
-            OddeeyMetricMeta metric;
-            final JsonElement ErrorData;
-            ErrorData = this.parser.parse(msg);
-            int hash = ErrorData.getAsJsonObject().get("hash").getAsInt();
-            if (mtrscList.get(hash)==null) {
-                byte[] key = Hex.decodeHex(ErrorData.getAsJsonObject().get("key").getAsString().toCharArray());
-                GetRequest request = new GetRequest(metatable, key, "d".getBytes());
-                ArrayList<KeyValue> row = globalFunctions.getSecindaryclient(clientconf).get(request).joinUninterruptibly();
-                metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);
-                LOGGER.info(metric.getName() + " " + ErrorData);
-            }
-            else
-            {
-                metric = mtrscList.get(hash);
-            }
-            ErrorState errorState = new ErrorState(ErrorData.getAsJsonObject());
-            metric.setErrorState(errorState);
-            
-            this.collector.emit(new Values(metric));
-            mtrscList.set(metric);
-        } catch (JsonSyntaxException e) {
-            LOGGER.error("ERROR: " + globalFunctions.stackTrace(e));
-        } catch (DecoderException ex) {
-            LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
+            OddeeyMetricMeta metric = (OddeeyMetricMeta) input.getValueByField("metric");
+
+            byte[] key = ArrayUtils.addAll(globalFunctions.getDayKey(metric.getErrorState().getTime()), metric.getUUIDKey());
+            //+" timekey:"+Hex.encodeHexString(globalFunctions.getNoDayKey(metric.getErrorState().getTime()))
+            qualifiers = new byte[2][];
+            values = new byte[2][];
+
+            qualifiers[0] = "lastlevel".getBytes();
+            qualifiers[1] = globalFunctions.getNoDayKey(metric.getErrorState().getTime());
+            values[0] =  ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array();
+            values[1] = ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array();
+            LOGGER.warn("metric:" + metric.getName() + " Host:" + metric.getTags().get("host").getValue() + " Err:" + metric.getErrorState().getLevel() + " state:" + metric.getErrorState().getState() + " time:" + metric.getErrorState().getTime() + " daykey:" + Hex.encodeHexString(key));
+
+            PutRequest put = new PutRequest(errorshistorytable, metric.getKey(), "d".getBytes(),qualifiers ,values);
+            globalFunctions.getSecindaryclient(clientconf).put(put);
+
         } catch (Exception ex) {
             LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
         }

@@ -71,6 +71,10 @@ public class NotifierTopology {
                 new ParseMetricErrorBolt(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("ParseMetricBoltParallelism_hint"))))
                 .shuffleGrouping("KafkaSpout");
 
+        builder.setBolt("MetricErrorToHbase",
+                new MetricErrorToHbase(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("MetricErrorToHbaseParallelism_hint"))))
+                .shuffleGrouping("ParseMetricBolt");        
+        
         Config conf = new Config();
         conf.setNumWorkers(Integer.parseInt(String.valueOf(tconf.get("NumWorkers"))));
         conf.put(Config.TOPOLOGY_DEBUG, true);
