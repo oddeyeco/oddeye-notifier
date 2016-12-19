@@ -52,7 +52,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer ofd) {
-        ofd.declare(new Fields("metric"));
+        ofd.declare(new Fields("metric","message"));
     }
 
     @Override
@@ -102,8 +102,8 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
             }
             ErrorState errorState = new ErrorState(ErrorData.getAsJsonObject());
             metric.setErrorState(errorState);
-            
-            this.collector.emit(new Values(metric));
+            String message = "";
+            this.collector.emit(new Values(metric,message));
             mtrscList.set(metric);
         } catch (JsonSyntaxException e) {
             LOGGER.error("ERROR: " + globalFunctions.stackTrace(e));
