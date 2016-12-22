@@ -8,6 +8,7 @@ package co.oddeye.storm;
 import co.oddeye.core.ErrorState;
 import co.oddeye.core.OddeeyMetricMeta;
 import co.oddeye.core.OddeeyMetricMetaList;
+import co.oddeye.core.OddeeysSpecialMetric;
 import co.oddeye.core.globalFunctions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -93,7 +94,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
                 byte[] key = Hex.decodeHex(ErrorData.getAsJsonObject().get("key").getAsString().toCharArray());
                 GetRequest request = new GetRequest(metatable, key, "d".getBytes());
                 ArrayList<KeyValue> row = globalFunctions.getSecindaryclient(clientconf).get(request).joinUninterruptibly();
-                metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);
+                metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);                                
                 LOGGER.info(metric.getName() + " " + ErrorData);
             }
             else
@@ -106,11 +107,11 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
             this.collector.emit(new Values(metric,message));
             mtrscList.set(metric);
         } catch (JsonSyntaxException e) {
-            LOGGER.error("ERROR: " + globalFunctions.stackTrace(e));
+            LOGGER.error("JsonSyntaxException: " + globalFunctions.stackTrace(e)+" "+msg);
         } catch (DecoderException ex) {
-            LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
+            LOGGER.error("DecoderException: " + globalFunctions.stackTrace(ex)+" "+msg);
         } catch (Exception ex) {
-            LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
+            LOGGER.error("Exception: " + globalFunctions.stackTrace(ex)+" "+msg);
         }
         this.collector.ack(input);
 

@@ -77,7 +77,8 @@ public class NotifierTopology {
         
         Config conf = new Config();
         conf.setNumWorkers(Integer.parseInt(String.valueOf(tconf.get("NumWorkers"))));
-        conf.put(Config.TOPOLOGY_DEBUG, true);
+//        conf.put(Config.TOPOLOGY_DEBUG, true);
+        conf.setMaxSpoutPending(Integer.parseInt(String.valueOf(tconf.get("topology.max.spout.pending"))));
         conf.setDebug(Boolean.getBoolean(String.valueOf(tconf.get("Debug"))));
         conf.setMessageTimeoutSecs(Integer.parseInt(String.valueOf(tconf.get("topology.message.timeout.secs"))));
         try {
