@@ -44,13 +44,11 @@ public class MetricErrorToHbase extends BaseRichBolt {
 
     protected OutputCollector collector;
     public static final Logger LOGGER = LoggerFactory.getLogger(MetricErrorToHbase.class);
-    private JsonParser parser = null;
     private final Map conf;
     private Config openTsdbConfig;
     private org.hbase.async.Config clientconf;
-    private byte[] metatable;
-    private OddeeyMetricMetaList mtrscList;
     private byte[] errorshistorytable;
+    private byte[] errorslasttable;
     private byte[][] qualifiers;
     private byte[][] values;
 
@@ -68,7 +66,6 @@ public class MetricErrorToHbase extends BaseRichBolt {
         try {
             LOGGER.warn("DoPrepare ParseMetricErrorBolt");
             collector = oc;
-            parser = new JsonParser();
             String quorum = String.valueOf(conf.get("zkHosts"));
             LOGGER.error("quorum: " + quorum);
             openTsdbConfig = new net.opentsdb.utils.Config(true);
@@ -81,10 +78,11 @@ public class MetricErrorToHbase extends BaseRichBolt {
             clientconf.overrideConfig("hbase.zookeeper.quorum", quorum);
             clientconf.overrideConfig("hbase.rpcs.batch.size", "2048");
             TSDB tsdb = globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf);
-            LOGGER.error("tsdb: " + tsdb);
-            this.metatable = String.valueOf(conf.get("metatable")).getBytes();
+            if (tsdb == null) {
+                LOGGER.error("tsdb: " + tsdb);
+            }
             this.errorshistorytable = String.valueOf(conf.get("errorshistorytable")).getBytes();
-            mtrscList = new OddeeyMetricMetaList();
+            this.errorslasttable = String.valueOf(conf.get("errorslasttable")).getBytes();
         } catch (IOException ex) {
             LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
         }
@@ -97,7 +95,8 @@ public class MetricErrorToHbase extends BaseRichBolt {
             OddeeyMetricMeta metric = (OddeeyMetricMeta) input.getValueByField("metric");
             String message = (String) input.getValueByField("message");
 //Bytes.toString(val)
-            byte[] key = ArrayUtils.addAll(globalFunctions.getDayKey(metric.getErrorState().getTime()), metric.getUUIDKey());
+            byte[] historykey = ArrayUtils.addAll(globalFunctions.getDayKey(metric.getErrorState().getTime()), metric.getUUIDKey());
+            byte[] lastkey = metric.getUUIDKey();
             //+" timekey:"+Hex.encodeHexString(globalFunctions.getNoDayKey(metric.getErrorState().getTime()))
             if (metric.getErrorState().getMessage() == null) {
                 qualifiers = new byte[4][];
@@ -133,65 +132,20 @@ public class MetricErrorToHbase extends BaseRichBolt {
                 }
                 values[3] = buffer.array();
 
-                LOGGER.info("metric:" + metric.getName() + " Host:" + metric.getTags().get("host").getValue() + " Err:" + metric.getTags().get("UUID").getValue() + " state:" + metric.getErrorState().getState() + " time:" + metric.getErrorState().getTime() + " daykey:" + Hex.encodeHexString(key) + " message:" + message);
-                PutRequest putlast = new PutRequest(errorshistorytable, key, "l".getBytes(), qualifiers, values);
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("metric:" + metric.getName() + " Host:" + metric.getTags().get("host").getValue() + " Err:" + metric.getTags().get("UUID").getValue() + " state:" + metric.getErrorState().getState() + " time:" + metric.getErrorState().getTime() + " daykey:" + Hex.encodeHexString(lastkey) + " message:" + message);
+                }
+                PutRequest putlast = new PutRequest(errorslasttable, lastkey, "l".getBytes(), qualifiers, values);
                 globalFunctions.getSecindaryclient(clientconf).put(putlast);
             } else {
-                Scanner scanner = globalFunctions.getSecindaryclient(clientconf).newScanner(errorshistorytable);
-                scanner.setServerBlockCache(false);
-                scanner.setFamily("l".getBytes());
-                key = metric.getUUIDKey();
-                StringBuilder buffer = new StringBuilder();
-                buffer.append("(?s)^.{4}(");
-                buffer.append("\\Q");
-                QueryUtil.addId(buffer, key, true);
-//                for (int i = 0; i < key.length; i++) {
-//                    if (key[i] >= 32 && key[i] != 92 && key[i] != 127) {
-//                        buffer.append((char) key[i]);
-//                    } else {
-//                        String temp;
-//                        if (key[i] == 92) {
-//                            buffer.append("\\\\");
-//                        } else {
-//                            temp = String.format("\\x%02x", key[i]);
-//                            buffer.append(temp);
-//                        }
-//                    }
-//                }
-                buffer.append(")$");
-                final ArrayList<ScanFilter> filters = new ArrayList<>();
-                filters.add(new KeyRegexpFilter(buffer.toString()));
-                scanner.setFilter(new FilterList(filters));
-                LOGGER.debug("Select key:" + Hex.encodeHexString(key));
-                LOGGER.debug("Select key:" + buffer.toString());
-
-                class cb implements Callback<Object, ArrayList<ArrayList<KeyValue>>> {
-
-                    @Override
-                    public Object call(final ArrayList<ArrayList<KeyValue>> rows) {
-                        if (rows == null) {
-                            return null;
-                        }
-                        try {
-                            final ArrayList<KeyValue> kvs = rows.get(0);
-                            final KeyValue kv = kvs.get(0);
-                            final DeleteRequest delreq = new DeleteRequest(errorshistorytable, kv.key(), "l".getBytes());
-                            LOGGER.info("Delete key:" + Hex.encodeHexString(kv.key()));
-                            globalFunctions.getSecindaryclient(clientconf).delete(delreq);
-                            return scanner.nextRows(1).addCallback(this);
-                        } catch (AssertionError e) {
-                            throw new RuntimeException("Asynchronous failure", e);
-                        }
-                    }
+                final DeleteRequest delreq = new DeleteRequest(errorslasttable, lastkey);
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("Delete key:" + Hex.encodeHexString(lastkey));
                 }
-                try {
-                    scanner.nextRows(1).addCallback(new cb()).join();
-                } finally {
-                    scanner.close().join();
-                }
+                globalFunctions.getSecindaryclient(clientconf).delete(delreq);
             }
 
-            PutRequest puthistory = new PutRequest(errorshistorytable, key, "h".getBytes(), globalFunctions.getNoDayKey(metric.getErrorState().getTime()), ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array());
+            PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metric.getErrorState().getTime()), ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array());
             globalFunctions.getSecindaryclient(clientconf).put(puthistory);
 
         } catch (Exception ex) {
