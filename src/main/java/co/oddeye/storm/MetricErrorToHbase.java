@@ -6,16 +6,11 @@
 package co.oddeye.storm;
 
 import co.oddeye.core.OddeeyMetricMeta;
-import co.oddeye.core.OddeeyMetricMetaList;
 import co.oddeye.core.globalFunctions;
-import com.google.gson.JsonParser;
-import com.stumbleupon.async.Callback;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Map;
 import net.opentsdb.core.TSDB;
-import net.opentsdb.query.QueryUtil;
 import net.opentsdb.utils.Config;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang.ArrayUtils;
@@ -26,12 +21,7 @@ import org.apache.storm.topology.base.BaseRichBolt;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.hbase.async.DeleteRequest;
-import org.hbase.async.FilterList;
-import org.hbase.async.KeyRegexpFilter;
-import org.hbase.async.KeyValue;
 import org.hbase.async.PutRequest;
-import org.hbase.async.ScanFilter;
-import org.hbase.async.Scanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 //import org.apache.hadoop.hbase.util.Bytes;
@@ -99,11 +89,11 @@ public class MetricErrorToHbase extends BaseRichBolt {
             byte[] lastkey = metric.getUUIDKey();
             //+" timekey:"+Hex.encodeHexString(globalFunctions.getNoDayKey(metric.getErrorState().getTime()))
             if (metric.getErrorState().getMessage() == null) {
-                qualifiers = new byte[4][];
-                values = new byte[4][];
-            } else {
                 qualifiers = new byte[5][];
                 values = new byte[5][];
+            } else {
+                qualifiers = new byte[6][];
+                values = new byte[6][];
             }
 
             if (metric.getErrorState().getLevel() > -1) {
@@ -111,11 +101,13 @@ public class MetricErrorToHbase extends BaseRichBolt {
                 qualifiers[1] = "time".getBytes();
                 qualifiers[2] = "starttimes".getBytes();
                 qualifiers[3] = "endtimes".getBytes();
+                qualifiers[4] = "action".getBytes();
                 if (metric.getErrorState().getMessage() != null) {
-                    qualifiers[4] = "message".getBytes();
-                    values[4] = metric.getErrorState().getMessage().getBytes();
+                    qualifiers[5] = "message".getBytes();
+                    values[5] = metric.getErrorState().getMessage().getBytes();
                 }
                 values[0] = ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array();
+                values[4] = ByteBuffer.allocate(1).put((byte) metric.getErrorState().getState()).array();
                 values[1] = ByteBuffer.allocate(8).putLong(metric.getErrorState().getTime()).array();
                 ByteBuffer buffer = ByteBuffer.allocate(metric.getErrorState().getStarttimes().size() + metric.getErrorState().getStarttimes().size() * 8);
                 for (Map.Entry<Integer, Long> time : metric.getErrorState().getStarttimes().entrySet()) {
@@ -145,7 +137,7 @@ public class MetricErrorToHbase extends BaseRichBolt {
                 globalFunctions.getSecindaryclient(clientconf).delete(delreq);
             }
 
-            PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metric.getErrorState().getTime()), ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array());
+            PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metric.getErrorState().getTime()), ByteBuffer.allocate(2).put((byte) metric.getErrorState().getLevel()).put((byte) metric.getErrorState().getState()).array());
             globalFunctions.getSecindaryclient(clientconf).put(puthistory);
 
         } catch (Exception ex) {
