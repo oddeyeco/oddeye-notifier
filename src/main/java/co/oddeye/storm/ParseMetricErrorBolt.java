@@ -53,7 +53,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer ofd) {
-        ofd.declare(new Fields("metric","message"));
+        ofd.declare(new Fields("metric","type"));
     }
 
     @Override
@@ -94,6 +94,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
                 byte[] key = Hex.decodeHex(ErrorData.getAsJsonObject().get("key").getAsString().toCharArray());
                 GetRequest request = new GetRequest(metatable, key, "d".getBytes());
                 ArrayList<KeyValue> row = globalFunctions.getSecindaryclient(clientconf).get(request).joinUninterruptibly();
+//                metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);
                 metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);                                
                 LOGGER.info(metric.getName() + " " + ErrorData);
             }
@@ -103,8 +104,8 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
             }
             ErrorState errorState = new ErrorState(ErrorData.getAsJsonObject());
             metric.setErrorState(errorState);
-            String message = "";
-            this.collector.emit(new Values(metric,message));
+            String type = ErrorData.getAsJsonObject().get("type").getAsString();
+            this.collector.emit(new Values(metric,type));
             mtrscList.set(metric);
         } catch (JsonSyntaxException e) {
             LOGGER.error("JsonSyntaxException: " + globalFunctions.stackTrace(e)+" "+msg);
