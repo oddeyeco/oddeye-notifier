@@ -8,7 +8,6 @@ package co.oddeye.storm;
 import co.oddeye.core.ErrorState;
 import co.oddeye.core.OddeeyMetricMeta;
 import co.oddeye.core.OddeeyMetricMetaList;
-import co.oddeye.core.OddeeysSpecialMetric;
 import co.oddeye.core.globalFunctions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -53,7 +52,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer ofd) {
-        ofd.declare(new Fields("metric","type"));
+        ofd.declare(new Fields("meta","reaction"));
     }
 
     @Override
@@ -86,7 +85,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
     public void execute(Tuple input) {
         String msg = input.getString(0);        
         try {
-            OddeeyMetricMeta metric;
+            OddeeyMetricMeta metricMeta;
             final JsonElement ErrorData;
             ErrorData = this.parser.parse(msg);
             int hash = ErrorData.getAsJsonObject().get("hash").getAsInt();
@@ -95,18 +94,18 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
                 GetRequest request = new GetRequest(metatable, key, "d".getBytes());
                 ArrayList<KeyValue> row = globalFunctions.getSecindaryclient(clientconf).get(request).joinUninterruptibly();
 //                metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);
-                metric = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);                                
-                LOGGER.info(metric.getName() + " " + ErrorData);
+                metricMeta = new OddeeyMetricMeta(row, globalFunctions.getSecindarytsdb(openTsdbConfig, clientconf), false);                                
+                LOGGER.info(metricMeta.getName() + " " + ErrorData);
             }
             else
             {
-                metric = mtrscList.get(hash);
+                metricMeta = mtrscList.get(hash);
             }
             ErrorState errorState = new ErrorState(ErrorData.getAsJsonObject());
-            metric.setErrorState(errorState);
-            String type = ErrorData.getAsJsonObject().get("type").getAsString();
-            this.collector.emit(new Values(metric,type));
-            mtrscList.set(metric);
+            metricMeta.setErrorState(errorState);
+            Integer reaction = ErrorData.getAsJsonObject().get("reaction").getAsInt();
+            this.collector.emit(new Values(metricMeta,reaction));
+            mtrscList.set(metricMeta);
         } catch (JsonSyntaxException e) {
             LOGGER.error("JsonSyntaxException: " + globalFunctions.stackTrace(e)+" "+msg);
         } catch (DecoderException ex) {

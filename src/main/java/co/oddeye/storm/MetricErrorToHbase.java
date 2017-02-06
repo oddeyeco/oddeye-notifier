@@ -82,52 +82,60 @@ public class MetricErrorToHbase extends BaseRichBolt {
     public void execute(Tuple input) {
 //        String msg = input.getString(0);        
         try {
-            OddeeyMetricMeta metric = (OddeeyMetricMeta) input.getValueByField("metric");
-            String type = (String) input.getValueByField("type");
+            OddeeyMetricMeta metricMeta = (OddeeyMetricMeta) input.getValueByField("meta");
+            Integer reaction = (Integer) input.getValueByField("reaction");
 //Bytes.toString(val)
-            byte[] historykey = ArrayUtils.addAll(globalFunctions.getDayKey(metric.getErrorState().getTime()), metric.getUUIDKey());
-            byte[] lastkey = metric.getUUIDKey();
+            byte[] historykey = ArrayUtils.addAll(globalFunctions.getDayKey(metricMeta.getErrorState().getTime()), metricMeta.getUUIDKey());
+            byte[] lastkey = metricMeta.getUUIDKey();
             //+" timekey:"+Hex.encodeHexString(globalFunctions.getNoDayKey(metric.getErrorState().getTime()))
-            if (metric.getErrorState().getMessage() == null) {
-                qualifiers = new byte[6][];
-                values = new byte[6][];
-            } else {
-                qualifiers = new byte[7][];
-                values = new byte[7][];
-            }
+//            if (metric.getErrorState().getMessage() == null) {
+            qualifiers = new byte[7][];
+            values = new byte[7][];
+//            } else {
+//                qualifiers = new byte[7][];
+//                values = new byte[7][];
+//            }
 
-            if (metric.getErrorState().getLevel() > -1) {
+            if (metricMeta.getErrorState().getLevel() > -1) {
+
+                if (metricMeta.isSpecial()) {
+                    qualifiers = new byte[8][];
+                    values = new byte[8][];
+                    qualifiers[6] = "message".getBytes();
+                    values[6] = metricMeta.getErrorState().getMessage().getBytes();
+                }
+
                 qualifiers[0] = "level".getBytes();
                 qualifiers[1] = "time".getBytes();
                 qualifiers[2] = "starttimes".getBytes();
                 qualifiers[3] = "endtimes".getBytes();
                 qualifiers[4] = "action".getBytes();
-                qualifiers[5] = "isspec".getBytes();                
-                if (metric.getErrorState().getMessage() != null) {
-                    qualifiers[6] = "message".getBytes();
-                    values[6] = metric.getErrorState().getMessage().getBytes();
-                }
-                values[0] = ByteBuffer.allocate(1).put((byte) metric.getErrorState().getLevel()).array();
-                values[5] = ByteBuffer.allocate(1).put((byte) (type.equals("Special")? 1 : 0 )).array();
-                values[4] = ByteBuffer.allocate(1).put((byte) metric.getErrorState().getState()).array();
-                values[1] = ByteBuffer.allocate(8).putLong(metric.getErrorState().getTime()).array();
-                ByteBuffer buffer = ByteBuffer.allocate(metric.getErrorState().getStarttimes().size() + metric.getErrorState().getStarttimes().size() * 8);
-                for (Map.Entry<Integer, Long> time : metric.getErrorState().getStarttimes().entrySet()) {
+                qualifiers[5] = "type".getBytes();
+                qualifiers[6] = "reaction".getBytes();
+                
+
+                values[0] = ByteBuffer.allocate(1).put((byte) metricMeta.getErrorState().getLevel()).array();
+                values[5] = ByteBuffer.allocate(2).putShort(metricMeta.getType()).array();
+                values[6] = ByteBuffer.allocate(4).putInt(reaction).array();
+                values[4] = ByteBuffer.allocate(1).put((byte) metricMeta.getErrorState().getState()).array();
+                values[1] = ByteBuffer.allocate(8).putLong(metricMeta.getErrorState().getTime()).array();
+                ByteBuffer buffer = ByteBuffer.allocate(metricMeta.getErrorState().getStarttimes().size() + metricMeta.getErrorState().getStarttimes().size() * 8);
+                for (Map.Entry<Integer, Long> time : metricMeta.getErrorState().getStarttimes().entrySet()) {
                     int level = time.getKey();
                     buffer.put((byte) level).putLong(time.getValue());
                 }
                 values[2] = buffer.array();
 
                 buffer.clear();
-                buffer = ByteBuffer.allocate(metric.getErrorState().getEndtimes().size() + metric.getErrorState().getEndtimes().size() * 8);
-                for (Map.Entry<Integer, Long> time : metric.getErrorState().getEndtimes().entrySet()) {
+                buffer = ByteBuffer.allocate(metricMeta.getErrorState().getEndtimes().size() + metricMeta.getErrorState().getEndtimes().size() * 8);
+                for (Map.Entry<Integer, Long> time : metricMeta.getErrorState().getEndtimes().entrySet()) {
                     int level = time.getKey();
                     buffer.put((byte) level).putLong(time.getValue());
                 }
                 values[3] = buffer.array();
 
                 if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("metric:" + metric.getName() + " Host:" + metric.getTags().get("host").getValue() + " Err:" + metric.getTags().get("UUID").getValue() + " state:" + metric.getErrorState().getState() + " time:" + metric.getErrorState().getTime() + " daykey:" + Hex.encodeHexString(lastkey) + " message:" + type);
+                    LOGGER.info("metric:" + metricMeta.getName() + " Host:" + metricMeta.getTags().get("host").getValue() + " Err:" + metricMeta.getTags().get("UUID").getValue() + " state:" + metricMeta.getErrorState().getState() + " time:" + metricMeta.getErrorState().getTime() + " daykey:" + Hex.encodeHexString(lastkey));
                 }
                 PutRequest putlast = new PutRequest(errorslasttable, lastkey, "l".getBytes(), qualifiers, values);
                 globalFunctions.getSecindaryclient(clientconf).put(putlast);
@@ -139,8 +147,8 @@ public class MetricErrorToHbase extends BaseRichBolt {
                 globalFunctions.getSecindaryclient(clientconf).delete(delreq);
             }
 
-            PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metric.getErrorState().getTime()), ByteBuffer.allocate(2).put((byte) metric.getErrorState().getLevel()).put((byte) metric.getErrorState().getState()).array());
-            globalFunctions.getSecindaryclient(clientconf).put(puthistory);
+//            PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metricMeta.getErrorState().getTime()), ByteBuffer.allocate(2).put((byte) metricMeta.getErrorState().getLevel()).put((byte) metricMeta.getErrorState().getState()).array());
+//            globalFunctions.getSecindaryclient(clientconf).put(puthistory);
 
         } catch (Exception ex) {
             LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
