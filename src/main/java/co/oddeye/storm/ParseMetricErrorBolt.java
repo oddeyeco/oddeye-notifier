@@ -52,7 +52,7 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer ofd) {
-        ofd.declare(new Fields("meta","reaction"));
+        ofd.declare(new Fields("meta","reaction","startvalue"));
     }
 
     @Override
@@ -104,7 +104,8 @@ public class ParseMetricErrorBolt extends BaseRichBolt {
             ErrorState errorState = new ErrorState(ErrorData.getAsJsonObject());
             metricMeta.setErrorState(errorState);
             Integer reaction = ErrorData.getAsJsonObject().get("reaction").getAsInt();
-            this.collector.emit(new Values(metricMeta,reaction));
+            Double startvalue = ErrorData.getAsJsonObject().get("startvalue").getAsDouble();
+            this.collector.emit(new Values(metricMeta,reaction,startvalue));
             mtrscList.set(metricMeta);
         } catch (JsonSyntaxException e) {
             LOGGER.error("JsonSyntaxException: " + globalFunctions.stackTrace(e)+" "+msg);

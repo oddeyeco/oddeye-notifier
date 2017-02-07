@@ -35,6 +35,7 @@ public class MetricErrorToHbase extends BaseRichBolt {
     protected OutputCollector collector;
     public static final Logger LOGGER = LoggerFactory.getLogger(MetricErrorToHbase.class);
     private final Map conf;
+    private final int qualifiersCount = 8;
     private Config openTsdbConfig;
     private org.hbase.async.Config clientconf;
     private byte[] errorshistorytable;
@@ -84,13 +85,14 @@ public class MetricErrorToHbase extends BaseRichBolt {
         try {
             OddeeyMetricMeta metricMeta = (OddeeyMetricMeta) input.getValueByField("meta");
             Integer reaction = (Integer) input.getValueByField("reaction");
+            Double startvalue = (Double) input.getValueByField("startvalue");
 //Bytes.toString(val)
             byte[] historykey = ArrayUtils.addAll(globalFunctions.getDayKey(metricMeta.getErrorState().getTime()), metricMeta.getUUIDKey());
             byte[] lastkey = metricMeta.getUUIDKey();
             //+" timekey:"+Hex.encodeHexString(globalFunctions.getNoDayKey(metric.getErrorState().getTime()))
 //            if (metric.getErrorState().getMessage() == null) {
-            qualifiers = new byte[7][];
-            values = new byte[7][];
+            qualifiers = new byte[qualifiersCount][];
+            values = new byte[qualifiersCount][];
 //            } else {
 //                qualifiers = new byte[7][];
 //                values = new byte[7][];
@@ -99,10 +101,10 @@ public class MetricErrorToHbase extends BaseRichBolt {
             if (metricMeta.getErrorState().getLevel() > -1) {
 
                 if (metricMeta.isSpecial()) {
-                    qualifiers = new byte[8][];
-                    values = new byte[8][];
-                    qualifiers[6] = "message".getBytes();
-                    values[6] = metricMeta.getErrorState().getMessage().getBytes();
+                    qualifiers = new byte[qualifiersCount+1][];
+                    values = new byte[qualifiersCount+1][];
+                    qualifiers[qualifiersCount] = "message".getBytes();
+                    values[qualifiersCount] = metricMeta.getErrorState().getMessage().getBytes();
                 }
 
                 qualifiers[0] = "level".getBytes();
@@ -112,11 +114,13 @@ public class MetricErrorToHbase extends BaseRichBolt {
                 qualifiers[4] = "action".getBytes();
                 qualifiers[5] = "type".getBytes();
                 qualifiers[6] = "reaction".getBytes();
+                qualifiers[7] = "sv".getBytes();
                 
 
                 values[0] = ByteBuffer.allocate(1).put((byte) metricMeta.getErrorState().getLevel()).array();
                 values[5] = ByteBuffer.allocate(2).putShort(metricMeta.getType()).array();
                 values[6] = ByteBuffer.allocate(4).putInt(reaction).array();
+                values[7] = ByteBuffer.allocate(8).putDouble(startvalue).array();
                 values[4] = ByteBuffer.allocate(1).put((byte) metricMeta.getErrorState().getState()).array();
                 values[1] = ByteBuffer.allocate(8).putLong(metricMeta.getErrorState().getTime()).array();
                 ByteBuffer buffer = ByteBuffer.allocate(metricMeta.getErrorState().getStarttimes().size() + metricMeta.getErrorState().getStarttimes().size() * 8);
