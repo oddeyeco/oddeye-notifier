@@ -144,6 +144,13 @@ public class StormUser implements Serializable {
 
             if (filtername.equals("oddeye_base_send_email")) {
                 if (filter.containsKey("send_email")) {
+                    chatid = this.email;
+                    if (filter.containsKey("email_input")) {
+                        if (!filter.get("email_input").isEmpty()) {
+                            chatid = filter.get("email_input");
+                        }
+                    }
+
                     if (filter.get("send_email").equals("on")) {
                         if (Checkforfilter(filter, metric)) {
                             NotifiersList.add(filtername);

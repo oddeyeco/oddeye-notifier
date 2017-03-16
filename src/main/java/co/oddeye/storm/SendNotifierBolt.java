@@ -8,6 +8,7 @@ package co.oddeye.storm;
 import co.oddeye.core.OddeeyMetricMeta;
 import co.oddeye.core.OddeeySenderMetricMetaList;
 import co.oddeye.core.globalFunctions;
+import co.oddeye.storm.core.SendToEmail;
 import co.oddeye.storm.core.SendToTelegram;
 import co.oddeye.storm.core.StormUser;
 import com.google.gson.JsonObject;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import net.opentsdb.core.TSDB;
 import net.opentsdb.utils.Config;
 import org.apache.storm.task.OutputCollector;
@@ -101,28 +103,32 @@ public class SendNotifierBolt extends BaseRichBolt {
     }
 
     @Override
-    public void execute(Tuple tuple) {                                
+    public void execute(Tuple tuple) {
         if (tuple.getSourceComponent().equals("kafkaSemaphoreSpot")) {
             JsonObject jsonResult = this.parser.parse(tuple.getString(0)).getAsJsonObject();
             if (jsonResult.get("action").getAsString().equals("changefilter")) {
                 String filter = jsonResult.get("filter").getAsString();
                 UserList.get(jsonResult.get("UUID").getAsString()).getFiltertemplateList().put(jsonResult.get("filtername").getAsString(), filter);
                 Map<String, String> map = new HashMap<>();
-                map = (Map<String, String>) globalFunctions.getGson().fromJson(filter, map.getClass());                              
+                map = (Map<String, String>) globalFunctions.getGson().fromJson(filter, map.getClass());
                 UserList.get(jsonResult.get("UUID").getAsString()).getFiltertemplateMap().put(jsonResult.get("filtername").getAsString(), map);
             }
         }
         if (tuple.getSourceComponent().equals("TimerSpout")) {
             LOGGER.warn("Ancav mi rope");
             UserList.entrySet().forEach((Map.Entry<String, StormUser> user) -> {
-                user.getValue().getTargetList().entrySet().stream().map((target) -> {
+                user.getValue().getTargetList().entrySet().stream().map((Map.Entry<String, OddeeySenderMetricMetaList> target) -> {
                     Runnable Sender = null;
-                    if (target.getKey().equals("telegram"))
-                    {
-                        Sender = new SendToTelegram(target.getValue(),user);
+                    if (target.getValue().size() > 0) {
+                        if (target.getKey().equals("telegram")) {
+                            Sender = new SendToTelegram(target.getValue(), user);
+                        }
+                        if (target.getKey().equals("email")) {
+                            Sender = new SendToEmail(target.getValue(), user);
+                        }
                     }
                     return Sender;
-                }).filter((Sender) -> (Sender!= null)).forEachOrdered((Sender) -> {
+                }).filter((Sender) -> (Sender != null)).forEachOrdered((Sender) -> {
                     executor.submit(Sender);
                 });
             });
@@ -131,20 +137,15 @@ public class SendNotifierBolt extends BaseRichBolt {
         if (tuple.getSourceComponent().equals("ParseMetricBolt")) {
             OddeeyMetricMeta metricMeta = (OddeeyMetricMeta) tuple.getValueByField("meta");
             final StormUser User = UserList.get(metricMeta.getTags().get("UUID").getValue());
-//            LOGGER.warn(ErrorsList.containsKey(metricMeta.hashCode())+"");
-//            LOGGER.warn(ErrorsList.size()+"");
-            if (ErrorsList.containsKey(metricMeta.hashCode())) {                
-//                LOGGER.warn("Level metric"+metricMeta.getErrorState().getLevelName()+"Level metric Old "+ErrorsList.get(metricMeta.hashCode()).getErrorState().getLevelName());
+            if (ErrorsList.containsKey(metricMeta.hashCode())) {
                 User.PrepareNotifier(metricMeta, ErrorsList.get(metricMeta.hashCode()), false);
                 if (metricMeta.getErrorState().getLevel() == -1) {
                     ErrorsList.remove(metricMeta.hashCode());
                 }
-//                ErrorsList.replace(metricMeta.hashCode(), metricMeta);
             } else {
                 if (metricMeta.getErrorState().getLevel() > -1) {
                     User.PrepareNotifier(metricMeta, null, true);
                 }
-//                ErrorsList.put(metricMeta.hashCode(), metricMeta);
             }
             ErrorsList.put(metricMeta.hashCode(), metricMeta);
         }
