@@ -5,6 +5,12 @@ Kafka:
    topic: "errors"
    zkRoot: "/storm_oddeye"
    zkKey: "oddeye-staus"   
+
+KafkaSemaphore:
+   zkHosts: "nn1.netangels.net:2181,nn2.netangels.net:2181,rm1.netangels.net:2181"       
+   topic: "semaphore"   
+   zkRoot: "/semaphore_oddeye"
+   zkKey: "semaphore-staus"       
    
 Tsdb:
   zkHosts: "nn1.netangels.net:2181,nn2.netangels.net:2181,rm1.netangels.net:2181"   
@@ -12,6 +18,8 @@ Tsdb:
   errorstable: test_oddeye-errors
   errorshistorytable: test_oddeye-error-history
   errorslasttable: test_oddeye-error-last
+  userstable: oddeyeusers
+  
   tsd.core.auto_create_metrics: false
   tsd.storage.enable_compaction: false
   tsd.storage.hbase.data_table: test_tsdb
@@ -21,8 +29,10 @@ Topology:
     topologi.display.name: "NotifierTopology"
     NumWorkers: 3
     SpoutParallelism_hint: 1
+    SpoutSemaphoreParallelism_hint: 1
     ParseMetricBoltParallelism_hint: 2
     MetricErrorToHbaseParallelism_hint: 3
+    SendNotifierBoltParallelism_hint: 6
     Debug: false
     DisableCheck: false
     topology.message.timeout.secs: 30

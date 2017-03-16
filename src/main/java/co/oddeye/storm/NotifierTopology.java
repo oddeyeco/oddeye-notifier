@@ -42,6 +42,7 @@ public class NotifierTopology {
         }
 
         java.util.Map<String, Object> kafkaconf = (java.util.Map<String, Object>) topologyconf.get("Kafka");
+        java.util.Map<String, Object> kafkasemaphoreconf = (java.util.Map<String, Object>) topologyconf.get("KafkaSemaphore");
         java.util.Map<String, Object> tconf = (java.util.Map<String, Object>) topologyconf.get("Topology");
 
         TopologyBuilder builder = new TopologyBuilder();
@@ -58,21 +59,33 @@ public class NotifierTopology {
 
         kafkaConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
 
-        builder.setSpout("KafkaSpout", new KafkaSpout(kafkaConfig), Integer.parseInt(String.valueOf(tconf.get("SpoutParallelism_hint"))));        
+        builder.setSpout("KafkaSpout", new KafkaSpout(kafkaConfig), Integer.parseInt(String.valueOf(tconf.get("SpoutParallelism_hint"))));     
+        builder.setSpout("TimerSpout", new TimerSpout(), 1);
+        
+        // Semaphore bolt
+        
+        BrokerHosts zkSemaphoreHosts = new ZkHosts(String.valueOf(kafkasemaphoreconf.get("zkHosts")));
+        SpoutConfig kafkaSemaphoreConfig = new SpoutConfig(zkSemaphoreHosts,
+                String.valueOf(kafkasemaphoreconf.get("topic")), String.valueOf(kafkasemaphoreconf.get("zkRoot")), String.valueOf(kafkasemaphoreconf.get("zkKey")));
+        kafkaSemaphoreConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
+        builder.setSpout("kafkaSemaphoreSpot", new KafkaSpout(kafkaSemaphoreConfig), Integer.parseInt(String.valueOf(tconf.get("SpoutSemaphoreParallelism_hint"))));         
 
         java.util.Map<String, Object> TSDBconfig = (java.util.Map<String, Object>) topologyconf.get("Tsdb");
-        boolean CheckDisabled;
-        CheckDisabled = Boolean.valueOf(String.valueOf(tconf.get("DisableCheck")));
-
-        TSDBconfig.put("DisableCheck", Boolean.toString(CheckDisabled));
 
         builder.setBolt("ParseMetricBolt",
                 new ParseMetricErrorBolt(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("ParseMetricBoltParallelism_hint"))))
                 .shuffleGrouping("KafkaSpout");
 
-        builder.setBolt("MetricErrorToHbase",
-                new MetricErrorToHbase(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("MetricErrorToHbaseParallelism_hint"))))
-                .shuffleGrouping("ParseMetricBolt");        
+//        builder.setBolt("MetricErrorToHbase",
+//                new MetricErrorToHbase(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("MetricErrorToHbaseParallelism_hint"))))
+//                .shuffleGrouping("ParseMetricBolt");        
+
+        builder.setBolt("SendNotifierBolt",
+                new SendNotifierBolt(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("SendNotifierBoltParallelism_hint"))))
+                .customGrouping("ParseMetricBolt", new MetaByUserGrouper())
+                .allGrouping("TimerSpout")
+                .allGrouping("kafkaSemaphoreSpot");                
+        
         
         Config conf = new Config();
         conf.setNumWorkers(Integer.parseInt(String.valueOf(tconf.get("NumWorkers"))));
@@ -83,9 +96,6 @@ public class NotifierTopology {
         try {
 // This statement submit the topology on remote cluster. // args[0] = name of topology StormSubmitter.
             topologyname = String.valueOf(tconf.get("topologi.display.name"));
-            if (CheckDisabled) {
-                topologyname = topologyname + "_NoCheck";
-            }
             StormSubmitter.submitTopology(topologyname, conf, builder.createTopology());
         } catch (AlreadyAliveException | InvalidTopologyException | AuthorizationException alreadyAliveException) {
             System.out.println(alreadyAliveException);

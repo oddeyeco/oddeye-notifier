@@ -7,8 +7,6 @@ package co.oddeye.storm;
 
 import co.oddeye.core.globalFunctions;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
