@@ -33,7 +33,7 @@ public class SendToTelegram extends SendTo {
 
     @Override
     public void run() {
-        LOGGER.warn("Sent for user " + targetuser.getValue().getEmail() + " to Telegram " + targetdata.size() + " Messages");
+//        LOGGER.warn("Sent for user " + targetuser.getValue().getEmail() + " to Telegram " + targetdata.size() + " Messages");
         Iterator<Map.Entry<Integer, OddeeyMetricMeta>> iter = targetdata.entrySet().iterator();
         String Text = "";
         int Counter = 0;
@@ -50,7 +50,7 @@ public class SendToTelegram extends SendTo {
 
             iter.remove();
         }
-        LOGGER.warn(Text);
+//        LOGGER.warn(Text);
         if ((!targetdata.getTargetValue().isEmpty()) && (!Text.isEmpty())) {
             if (Counter>10)
             {

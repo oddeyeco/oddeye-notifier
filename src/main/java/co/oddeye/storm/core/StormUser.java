@@ -6,13 +6,11 @@
 package co.oddeye.storm.core;
 
 import co.oddeye.core.AlertLevel;
-import co.oddeye.core.ErrorState;
 import co.oddeye.core.OddeeyMetricMeta;
 import co.oddeye.core.OddeeySenderMetricMetaList;
 import co.oddeye.core.OddeyeTag;
 import co.oddeye.core.globalFunctions;
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -23,7 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.codec.binary.Hex;
 import org.hbase.async.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,10 +124,10 @@ public class StormUser implements Serializable {
                         } else {
                             RemoveList.put(filtername.replace("oddeye_base_send_", ""), true);
                             if (!isStart) {
-                                if (oldmetric.getErrorState().getLevel() == 5) {
-                                    LOGGER.warn("Level oldmetric " + oldmetric.getErrorState().getLevelName() + " Filtercheck " + Checkforfilter(filter, oldmetric));
-                                    LOGGER.warn("Level metric " + metric.getErrorState().getLevelName() + " name " + metric.getName() + " " + metric.getErrorState().getStateName() + " to " + metric.getErrorState().getLevelName());
-                                }
+//                                if (oldmetric.getErrorState().getLevel() == 5) {
+//                                    LOGGER.warn("Level oldmetric " + oldmetric.getErrorState().getLevelName() + " Filtercheck " + Checkforfilter(filter, oldmetric));
+//                                    LOGGER.warn("Level metric " + metric.getErrorState().getLevelName() + " name " + metric.getName() + " " + metric.getErrorState().getStateName() + " to " + metric.getErrorState().getLevelName());
+//                                }
 
                                 if (Checkforfilter(filter, oldmetric)) {
                                     NotifiersList.add(filtername);
