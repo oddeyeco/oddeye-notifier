@@ -71,6 +71,7 @@ public class NotifierTopology {
         builder.setSpout("kafkaSemaphoreSpot", new KafkaSpout(kafkaSemaphoreConfig), Integer.parseInt(String.valueOf(tconf.get("SpoutSemaphoreParallelism_hint"))));         
 
         java.util.Map<String, Object> TSDBconfig = (java.util.Map<String, Object>) topologyconf.get("Tsdb");
+        java.util.Map<String, Object> Mailconfig = (java.util.Map<String, Object>) topologyconf.get("mail");
 
         builder.setBolt("ParseMetricBolt",
                 new ParseMetricErrorBolt(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("ParseMetricBoltParallelism_hint"))))
@@ -81,7 +82,7 @@ public class NotifierTopology {
 //                .shuffleGrouping("ParseMetricBolt");        
 
         builder.setBolt("SendNotifierBolt",
-                new SendNotifierBolt(TSDBconfig), Integer.parseInt(String.valueOf(tconf.get("SendNotifierBoltParallelism_hint"))))
+                new SendNotifierBolt(TSDBconfig, Mailconfig), Integer.parseInt(String.valueOf(tconf.get("SendNotifierBoltParallelism_hint"))))
                 .customGrouping("ParseMetricBolt", new MetaByUserGrouper())
                 .allGrouping("TimerSpout")
                 .allGrouping("kafkaSemaphoreSpot");                

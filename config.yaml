@@ -18,12 +18,19 @@ Tsdb:
   errorstable: test_oddeye-errors
   errorshistorytable: test_oddeye-error-history
   errorslasttable: test_oddeye-error-last
-  userstable: oddeyeusers
-  
+  userstable: oddeyeusers  
   tsd.core.auto_create_metrics: false
   tsd.storage.enable_compaction: false
   tsd.storage.hbase.data_table: test_tsdb
   tsd.storage.hbase.uid_table: test_tsdb-uid
+  
+mail:
+    from: noreply@oddeye.co
+    smtp.host: mail.netangels.net
+    smtp.auth: true
+    smtp.port: 25
+    mail.user: noreply@oddeye.co
+    mail.password: Rembo3Rembo4
    
 Topology:    
     topologi.display.name: "NotifierTopology"

@@ -12,7 +12,6 @@ import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
-import java.util.logging.Level;
 import javax.mail.Authenticator;
 import javax.mail.Session;
 import javax.mail.Message;
@@ -37,28 +36,21 @@ public class SendToEmail extends SendTo {
     private final Session session;
     private final String from;
 
-    public SendToEmail(OddeeySenderMetricMetaList value, Map.Entry<String, StormUser> user) {
+    public SendToEmail(OddeeySenderMetricMetaList value, Map.Entry<String, StormUser> user, Map conf) {
         targetdata = value;
         targetuser = user;
 
         // Sender's email ID needs to be mentioned
-        from = "noreply@oddeye.co";
-
-        // Assuming you are sending email from localhost
-        String host = "mail.netangels.net";
+        from = String.valueOf(conf.get("from"));
 
         // Get system properties
         Properties properties = new Properties();
 
-        // Setup mail server
-        properties.put("mail.smtp.auth", "true");
-//        props.put("mail.smtp.starttls.enable", "true");
-
-        properties.put("mail.smtp.port", "25");
-
-        properties.put("mail.smtp.host", host);
-        properties.put("mail.user", "noreply@oddeye.co");
-        properties.put("mail.password", "Rembo3Rembo4");
+        properties.put("mail.smtp.auth", String.valueOf(conf.get("smtp.auth")));
+        properties.put("mail.smtp.port", String.valueOf(conf.get("smtp.port")));
+        properties.put("mail.smtp.host", String.valueOf(conf.get("smtp.host")));
+        properties.put("mail.user", String.valueOf(conf.get("mail.user")));
+        properties.put("mail.password", String.valueOf(conf.get("mail.password")));
 
         // Get the default Session object.
         String username = "noreply@oddeye.co";
@@ -73,7 +65,7 @@ public class SendToEmail extends SendTo {
 
     @Override
     public void run() {
-        LOGGER.warn("Sent for user " + targetuser.getValue().getEmail() + " to Email " + targetdata.size() + " Messages");
+//        LOGGER.warn("Sent for user " + targetuser.getValue().getEmail() + " to Email " + targetdata.size() + " Messages");
         Iterator<Map.Entry<Integer, OddeeyMetricMeta>> iter = targetdata.entrySet().iterator();
         String Text = "";
 
@@ -89,11 +81,11 @@ public class SendToEmail extends SendTo {
 
             iter.remove();
         }
-        LOGGER.warn(Text);
+//        LOGGER.warn(Text);
         if (!Text.isEmpty()) {
             // Recipient's email ID needs to be mentioned.
             String to = targetdata.getTargetValue();
-            LOGGER.warn("targetdata.getTargetValue(); " + targetdata.getTargetValue());
+//            LOGGER.warn("targetdata.getTargetValue(); " + targetdata.getTargetValue());
             try {
                 MimeMessage message = new MimeMessage(session);
 
@@ -112,11 +104,9 @@ public class SendToEmail extends SendTo {
 
 // Send message
                 Transport.send(message);
-                LOGGER.warn("mail sended");
-            } catch (MessagingException ex) {
+//                LOGGER.warn("mail sended");
+            } catch (MessagingException | UnsupportedEncodingException ex) {
                 LOGGER.error(globalFunctions.stackTrace(ex));
-            } catch (UnsupportedEncodingException ex) {
-                java.util.logging.Logger.getLogger(SendToEmail.class.getName()).log(Level.SEVERE, null, ex);
             }
         } else {
         }

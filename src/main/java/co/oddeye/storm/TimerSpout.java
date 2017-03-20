@@ -38,7 +38,7 @@ public class TimerSpout extends BaseRichSpout {
     public void nextTuple() {
         try {
             LOGGER.debug("outputCollector.start");
-            Thread.sleep(60000);
+            Thread.sleep(2*60000);
             outputCollector.emit(new Values(System.currentTimeMillis()));
             LOGGER.debug("outputCollector.emit");
         } catch (InterruptedException ex) {

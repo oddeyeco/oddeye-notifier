@@ -51,9 +51,15 @@ public class SendNotifierBolt extends BaseRichBolt {
     private Map<String, StormUser> UserList;
     private Map<Integer, OddeeyMetricMeta> ErrorsList;
     private ExecutorService executor;
+    private Map<String, Object> mailconf;
 
     public SendNotifierBolt(java.util.Map config) {
         this.conf = config;
+    }
+
+    SendNotifierBolt(Map<String, Object> TSDBconfig, Map<String, Object> Mailconfig) {
+        this.conf = TSDBconfig;
+        this.mailconf = Mailconfig;
     }
 
     @Override
@@ -115,7 +121,7 @@ public class SendNotifierBolt extends BaseRichBolt {
             }
         }
         if (tuple.getSourceComponent().equals("TimerSpout")) {
-            LOGGER.warn("Ancav mi rope");
+//            LOGGER.warn("Ancav mi rope");
             UserList.entrySet().forEach((Map.Entry<String, StormUser> user) -> {
                 user.getValue().getTargetList().entrySet().stream().map((Map.Entry<String, OddeeySenderMetricMetaList> target) -> {
                     Runnable Sender = null;
@@ -124,7 +130,7 @@ public class SendNotifierBolt extends BaseRichBolt {
                             Sender = new SendToTelegram(target.getValue(), user);
                         }
                         if (target.getKey().equals("email")) {
-                            Sender = new SendToEmail(target.getValue(), user);
+                            Sender = new SendToEmail(target.getValue(), user,mailconf);
                         }
                     }
                     return Sender;
