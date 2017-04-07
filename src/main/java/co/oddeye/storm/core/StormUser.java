@@ -99,11 +99,12 @@ public class StormUser implements Serializable {
     }
 
     public void PrepareNotifier(OddeeyMetricMeta metric, OddeeyMetricMeta oldmetric, boolean isStart) {
-        String chatid = "";
+        
         boolean filtred = false;
-        List<String> NotifiersList = new ArrayList<>();
+        Map<String, String> NotifiersList = new HashMap<>();
         Map<String, Boolean> RemoveList = new HashMap<>();
         for (Map.Entry<String, Map<String, String>> filterEntry : this.getFiltertemplateMap().entrySet()) {
+            String chatid = "";
             final String filtername = filterEntry.getKey();
             final Map<String, String> filter = filterEntry.getValue();
             if ((!filtername.equals("oddeye_base_send_telegram")) && (!filtername.equals("oddeye_base_send_email"))) {
@@ -114,23 +115,17 @@ public class StormUser implements Serializable {
                 if (filter.containsKey("send_telegram")) {
                     if (filter.containsKey("telegram_input")) {
                         chatid = filter.get("telegram_input");
-                    }
-
+                    }                    
                     if (filter.get("send_telegram").equals("on") && !chatid.isEmpty()) {
                         if (Checkforfilter(filter, metric)) {
-                            NotifiersList.add(filtername);
+                            NotifiersList.put(filtername,chatid);
                             filtred = true;
                             RemoveList.put(filtername.replace("oddeye_base_send_", ""), false);
                         } else {
                             RemoveList.put(filtername.replace("oddeye_base_send_", ""), true);
                             if (!isStart) {
-//                                if (oldmetric.getErrorState().getLevel() == 5) {
-//                                    LOGGER.warn("Level oldmetric " + oldmetric.getErrorState().getLevelName() + " Filtercheck " + Checkforfilter(filter, oldmetric));
-//                                    LOGGER.warn("Level metric " + metric.getErrorState().getLevelName() + " name " + metric.getName() + " " + metric.getErrorState().getStateName() + " to " + metric.getErrorState().getLevelName());
-//                                }
-
                                 if (Checkforfilter(filter, oldmetric)) {
-                                    NotifiersList.add(filtername);
+                                    NotifiersList.put(filtername,chatid);
                                     filtred = true;
                                 }
                             }
@@ -150,14 +145,14 @@ public class StormUser implements Serializable {
 
                     if (filter.get("send_email").equals("on")) {
                         if (Checkforfilter(filter, metric)) {
-                            NotifiersList.add(filtername);
+                            NotifiersList.put(filtername,chatid);
                             filtred = true;
                             RemoveList.put(filtername.replace("oddeye_base_send_", ""), false);
                         } else {
                             RemoveList.put(filtername.replace("oddeye_base_send_", ""), true);
                             if (!isStart) {
                                 if (Checkforfilter(filter, oldmetric)) {
-                                    NotifiersList.add(filtername);
+                                    NotifiersList.put(filtername,chatid);
                                     filtred = true;
                                 }
                             }
@@ -169,8 +164,8 @@ public class StormUser implements Serializable {
 
         if (filtred) {
             if (metric != null) {
-                for (String target : NotifiersList) {
-
+                for (Map.Entry<String, String> targetEntry : NotifiersList.entrySet()) {
+                    String target = targetEntry.getKey();
                     target = target.replace("oddeye_base_send_", "");
                     OddeeySenderMetricMetaList Sendlist;
                     if (!TargetList.containsKey(target)) {
@@ -184,8 +179,7 @@ public class StormUser implements Serializable {
                         } else {
                             Sendlist.set(metric);
                             Sendlist.setTargetType(target);
-                            Sendlist.setTargetValue(chatid);
-
+                            Sendlist.setTargetValue(targetEntry.getValue());                            
                         }
 
                     } catch (Exception ex) {

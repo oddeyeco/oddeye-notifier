@@ -126,6 +126,7 @@ public class SendNotifierBolt extends BaseRichBolt {
                 user.getValue().getTargetList().entrySet().stream().map((Map.Entry<String, OddeeySenderMetricMetaList> target) -> {
                     Runnable Sender = null;
                     if (target.getValue().size() > 0) {
+                        LOGGER.warn("Ancav mi rope "+target.getKey());
                         if (target.getKey().equals("telegram")) {
                             Sender = new SendToTelegram(target.getValue(), user);
                         }
