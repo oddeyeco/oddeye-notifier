@@ -7,9 +7,11 @@ package co.oddeye.storm;
 
 import co.oddeye.core.OddeeyMetricMeta;
 import co.oddeye.core.globalFunctions;
+import co.oddeye.storm.core.StormUser;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.logging.Level;
 import net.opentsdb.core.TSDB;
 import net.opentsdb.utils.Config;
 import org.apache.commons.codec.binary.Hex;
@@ -80,85 +82,20 @@ public class MetricErrorToHbase extends BaseRichBolt {
     }
 
     @Override
-    public void execute(Tuple input) {
-//        String msg = input.getString(0);        
-        try {
-            OddeeyMetricMeta metricMeta = (OddeeyMetricMeta) input.getValueByField("meta");
-            Integer reaction = (Integer) input.getValueByField("reaction");
-            Double startvalue = (Double) input.getValueByField("startvalue");
-//Bytes.toString(val)
-            byte[] historykey = ArrayUtils.addAll(globalFunctions.getDayKey(metricMeta.getErrorState().getTime()), metricMeta.getUUIDKey());
-            byte[] lastkey = metricMeta.getUUIDKey();
-            //+" timekey:"+Hex.encodeHexString(globalFunctions.getNoDayKey(metric.getErrorState().getTime()))
-//            if (metric.getErrorState().getMessage() == null) {
-            qualifiers = new byte[qualifiersCount][];
-            values = new byte[qualifiersCount][];
-//            } else {
-//                qualifiers = new byte[7][];
-//                values = new byte[7][];
-//            }
-
-            if (metricMeta.getErrorState().getLevel() > -1) {
-
-                if (metricMeta.isSpecial()) {
-                    qualifiers = new byte[qualifiersCount+1][];
-                    values = new byte[qualifiersCount+1][];
-                    qualifiers[qualifiersCount] = "message".getBytes();
-                    values[qualifiersCount] = metricMeta.getErrorState().getMessage().getBytes();
-                }
-
-                qualifiers[0] = "level".getBytes();
-                qualifiers[1] = "time".getBytes();
-                qualifiers[2] = "starttimes".getBytes();
-                qualifiers[3] = "endtimes".getBytes();
-                qualifiers[4] = "action".getBytes();
-                qualifiers[5] = "type".getBytes();
-                qualifiers[6] = "reaction".getBytes();
-                qualifiers[7] = "sv".getBytes();
+    public void execute(Tuple tuple) {
+        this.collector.ack(tuple);
+        if (tuple.getSourceComponent().equals("ParseMetricBolt")) {
+            try {
+                OddeeyMetricMeta metricMeta = (OddeeyMetricMeta) tuple.getValueByField("meta");
+                byte[] historykey = ArrayUtils.addAll(metricMeta.getUUIDKey(), metricMeta.getKey());
+                historykey = ArrayUtils.addAll(historykey, globalFunctions.getDayKey(metricMeta.getErrorState().getTime()));
                 
-
-                values[0] = ByteBuffer.allocate(1).put((byte) metricMeta.getErrorState().getLevel()).array();
-                values[5] = ByteBuffer.allocate(2).putShort(metricMeta.getType()).array();
-                values[6] = ByteBuffer.allocate(4).putInt(reaction).array();
-                values[7] = ByteBuffer.allocate(8).putDouble(startvalue).array();
-                values[4] = ByteBuffer.allocate(1).put((byte) metricMeta.getErrorState().getState()).array();
-                values[1] = ByteBuffer.allocate(8).putLong(metricMeta.getErrorState().getTime()).array();
-                ByteBuffer buffer = ByteBuffer.allocate(metricMeta.getErrorState().getStarttimes().size() + metricMeta.getErrorState().getStarttimes().size() * 8);
-                for (Map.Entry<Integer, Long> time : metricMeta.getErrorState().getStarttimes().entrySet()) {
-                    int level = time.getKey();
-                    buffer.put((byte) level).putLong(time.getValue());
-                }
-                values[2] = buffer.array();
-
-                buffer.clear();
-                buffer = ByteBuffer.allocate(metricMeta.getErrorState().getEndtimes().size() + metricMeta.getErrorState().getEndtimes().size() * 8);
-                for (Map.Entry<Integer, Long> time : metricMeta.getErrorState().getEndtimes().entrySet()) {
-                    int level = time.getKey();
-                    buffer.put((byte) level).putLong(time.getValue());
-                }
-                values[3] = buffer.array();
-
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("metric:" + metricMeta.getName() + " Host:" + metricMeta.getTags().get("host").getValue() + " Err:" + metricMeta.getTags().get("UUID").getValue() + " state:" + metricMeta.getErrorState().getState() + " time:" + metricMeta.getErrorState().getTime() + " daykey:" + Hex.encodeHexString(lastkey));
-                }
-                PutRequest putlast = new PutRequest(errorslasttable, lastkey, "l".getBytes(), qualifiers, values);
-                globalFunctions.getSecindaryclient(clientconf).put(putlast);
-            } else {
-                final DeleteRequest delreq = new DeleteRequest(errorslasttable, lastkey);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("Delete key:" + Hex.encodeHexString(lastkey));
-                }
-                globalFunctions.getSecindaryclient(clientconf).delete(delreq);
-            }
-
-//            PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metricMeta.getErrorState().getTime()), ByteBuffer.allocate(2).put((byte) metricMeta.getErrorState().getLevel()).put((byte) metricMeta.getErrorState().getState()).array());
-//            globalFunctions.getSecindaryclient(clientconf).put(puthistory);
-
-        } catch (Exception ex) {
-            LOGGER.error("ERROR: " + globalFunctions.stackTrace(ex));
+                PutRequest puthistory = new PutRequest(errorshistorytable, historykey, "h".getBytes(), globalFunctions.getNoDayKey(metricMeta.getErrorState().getTime()), metricMeta.getErrorState().getSerialized());
+                globalFunctions.getSecindaryclient(clientconf).put(puthistory);
+        }catch (IOException ex) {
+            LOGGER.error(globalFunctions.stackTrace(ex));                
         }
-        this.collector.ack(input);
-
     }
+}
 
 }
