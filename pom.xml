@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>co.oddeye.storm</groupId>
     <artifactId>NotifierTopology</artifactId>
-    <version>0.2.0</version>
+    <version>0.5.0</version>
     <packaging>jar</packaging>
       
     <properties>
@@ -32,7 +32,7 @@
         <dependency>
             <groupId>org.apache.storm</groupId>
             <artifactId>storm-core</artifactId>
-            <version>1.0.2</version>
+            <version>1.1.0</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -77,7 +77,7 @@
         <dependency>
             <groupId>org.apache.storm</groupId>
             <artifactId>storm-hdfs</artifactId>
-            <version>1.0.2</version>
+            <version>1.1.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.zookeeper</groupId>
@@ -100,7 +100,7 @@
         <dependency>
             <groupId>org.apache.storm</groupId>
             <artifactId>storm-kafka</artifactId>
-            <version>1.0.2</version>      
+            <version>1.1.0</version>      
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.zookeeper</groupId>
