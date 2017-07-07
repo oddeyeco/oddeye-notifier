@@ -42,9 +42,9 @@ public class SendToTelegram extends SendTo {
             Map.Entry<Integer, OddeeyMetricMeta> entry = iter.next();
             if (Counter < 11) {
                 if (entry.getValue().getErrorState().getLevel() == -1) {
-                    Text = Text + "\nMertic:" + entry.getValue().getName() + "\nTags:\n   " + entry.getValue().getDisplayTags("\n   ") + " Already not in Error ";
+                    Text = Text + "\nMertic:" + "<a href=\""+"https://app.oddeye.co/OddeyeCoconut/metriq/"+entry.getValue().hashCode()+"/"+ (long) Math.floor(entry.getValue().getErrorState().getTime()/1000)+"\">"+entry.getValue().getName() + "</a><code>\nTags:\n   " + entry.getValue().getDisplayTags("\n   ") + "</code>\n<b> Already not in Error </b>";
                 } else {
-                    Text = Text + "\nLevel For Metric:" + entry.getValue().getName() + "\nTags:\n   " + entry.getValue().getDisplayTags("\n   ") + " " + entry.getValue().getErrorState().getStateName() + " to " + entry.getValue().getErrorState().getLevelName();
+                    Text = Text + "\nLevel For :" + "<a href=\""+"https://app.oddeye.co/OddeyeCoconut/metriq/"+entry.getValue().hashCode()+"/"+ (long) Math.floor(entry.getValue().getErrorState().getTime()/1000)+"\">"+entry.getValue().getName() + "</a> <code> \nTags:\n   " + entry.getValue().getDisplayTags("\n   ") + "</code>\n<b>" + entry.getValue().getErrorState().getStateName() + " to " + entry.getValue().getErrorState().getLevelName() +  "</b>" ;
                 }
             }                            
 
@@ -57,9 +57,9 @@ public class SendToTelegram extends SendTo {
                 Text = Text+"\n And "+(Counter-10)+" More";
             }
             try {
-                Text = "OddEye Report:" + Text;
+                Text = "<i>OddEye Report</i>" + Text;
                 Text = URLEncoder.encode(Text, "UTF-8");
-                String uri = "https://api.telegram.org/bot317219245:AAFqFjcddeXfrpIZ-V4ENeve87oxg0ZGGYs/sendMessage?chat_id=" + targetdata.getTargetValue() + "&text=" + Text;
+                String uri = "https://api.telegram.org/bot317219245:AAFqFjcddeXfrpIZ-V4ENeve87oxg0ZGGYs/sendMessage?chat_id=" + targetdata.getTargetValue() + "&text=" + Text+"&parse_mode=HTML";
                 OddeyeHttpURLConnection.sendGet(uri);
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.error(globalFunctions.stackTrace(ex));
