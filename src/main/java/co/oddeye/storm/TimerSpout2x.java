@@ -19,10 +19,10 @@ import org.slf4j.LoggerFactory;
  *
  * @author vahan
  */
-public class TimerSpout extends BaseRichSpout {
+public class TimerSpout2x extends BaseRichSpout {
 
     private SpoutOutputCollector outputCollector;
-    public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(TimerSpout.class);  
+    public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(TimerSpout2x.class);  
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {

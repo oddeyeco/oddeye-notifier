@@ -60,7 +60,7 @@ public class NotifierTopology {
         kafkaConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
 
         builder.setSpout("KafkaSpout", new KafkaSpout(kafkaConfig), Integer.parseInt(String.valueOf(tconf.get("SpoutParallelism_hint"))));     
-        builder.setSpout("TimerSpout", new TimerSpout(), 1);
+        builder.setSpout("TimerSpout2x", new TimerSpout2x(), 1);
         
         // Semaphore bolt
         
@@ -84,7 +84,7 @@ public class NotifierTopology {
         builder.setBolt("SendNotifierBolt",
                 new SendNotifierBolt(TSDBconfig, Mailconfig), Integer.parseInt(String.valueOf(tconf.get("SendNotifierBoltParallelism_hint"))))
                 .customGrouping("ParseMetricBolt", new MetaByUserGrouper())
-                .allGrouping("TimerSpout")
+                .allGrouping("TimerSpout2x")
                 .allGrouping("kafkaSemaphoreSpot");                
         
         
